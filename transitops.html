@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TransitOps — Fleet Transport Operations Airflow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#14181C;
+  --ink-2:#1D2329;
+  --ink-3:#2A3138;
+  --paper:#EDEFEE;
+  --card:#FFFFFF;
+  --accent:#F2A93B;
+  --accent-dark:#C9861F;
+  --route:#3B6FD1;
+  --route-dim:#E9EFFB;
+  --good:#2F9E5B;
+  --good-dim:#E7F5EC;
+  --bad:#D8483C;
+  --bad-dim:#FBEAE8;
+  --amber-dim:#FCF1DD;
+  --text:#1B1F23;
+  --text-dim:#6B7280;
+  --line:#DADDD9;
+  --line-2:#E4E6E3;
+  --radius:10px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Inter',sans-serif;
+  background:var(--paper);
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:'IBM Plex Mono',monospace;}
+.display{font-family:'Space Grotesk',sans-serif;}
+
+/* ===== Layout shell ===== */
+.shell{display:flex;min-height:100vh;}
+
+/* ===== Sidebar ===== */
+.sidebar{
+  width:230px;flex:0 0 230px;
+  background:var(--ink);
+  color:#DDE3E8;
+  display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;
+}
+.brand{
+  padding:22px 20px 18px;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+}
+.brand-mark{display:flex;align-items:center;gap:9px;}
+.brand-dot{
+  width:11px;height:11px;border-radius:3px;background:var(--accent);
+  box-shadow:0 0 0 3px rgba(242,169,59,0.18);
+  flex:0 0 auto;
+}
+.brand-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;letter-spacing:0.2px;color:#fff;}
+.brand-tag{font-size:10.5px;color:#8B95A0;letter-spacing:0.09em;text-transform:uppercase;margin-top:5px;margin-left:20px;}
+
+.nav{flex:1;padding:14px 10px;overflow-y:auto;}
+.nav-item{
+  display:flex;align-items:center;gap:11px;
+  padding:9px 10px;border-radius:8px;cursor:pointer;
+  color:#AEB6BE;font-size:13.5px;font-weight:500;
+  margin-bottom:2px;transition:background .15s,color .15s;
+  user-select:none;
+}
+.nav-item:hover{background:var(--ink-2);color:#fff;}
+.nav-item.active{background:var(--ink-3);color:#fff;}
+.nav-item.active .nav-code{color:var(--accent);border-color:var(--accent);}
+.nav-code{
+  font-family:'IBM Plex Mono',monospace;font-size:10px;
+  color:#6E7680;border:1px solid #3A424A;border-radius:4px;
+  padding:2px 5px;flex:0 0 auto;letter-spacing:0.02em;
+}
+.sidebar-foot{
+  padding:14px 16px 18px;border-top:1px solid rgba(255,255,255,0.08);
+}
+.role-pill{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--ink-2);border:1px solid #333B43;
+  border-radius:20px;padding:5px 10px;font-size:11.5px;color:#C6CCD2;margin-bottom:10px;
+}
+.role-pill span.rd{width:6px;height:6px;border-radius:50%;background:var(--good);}
+.signout{
+  width:100%;background:transparent;border:1px solid #3A424A;color:#AEB6BE;
+  padding:8px 10px;border-radius:8px;font-size:12.5px;cursor:pointer;font-family:inherit;
+  transition:all .15s;
+}
+.signout:hover{border-color:var(--bad);color:#F0968D;}
+
+/* ===== Main ===== */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 28px;background:var(--card);border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:5;gap:20px;
+}
+.search{
+  flex:1;max-width:360px;position:relative;
+}
+.search input{
+  width:100%;padding:9px 14px 9px 34px;border-radius:8px;border:1px solid var(--line);
+  font-family:'Inter',sans-serif;font-size:13px;background:var(--paper);color:var(--text);
+}
+.search input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
+.search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.45;}
+.top-right{display:flex;align-items:center;gap:12px;}
+.range-select{
+  padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);
+  font-size:12.5px;font-family:'Inter',sans-serif;color:var(--text);cursor:pointer;
+}
+.avatar{
+  width:34px;height:34px;border-radius:50%;background:var(--ink);color:var(--accent);
+  display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:13px;
+}
+.view{padding:26px 28px 60px;display:none;}
+.view.active{display:block;}
+.view-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
+.view-title{font-family:'Space Grotesk';font-size:22px;font-weight:700;letter-spacing:-0.01em;}
+.view-sub{color:var(--text-dim);font-size:13px;margin-top:3px;}
+.route-code{
+  font-family:'IBM Plex Mono';font-size:11px;color:var(--text-dim);
+  border:1px solid var(--line);border-radius:5px;padding:2px 7px;margin-right:8px;
+}
+
+/* ===== Buttons ===== */
+.btn{
+  font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;
+  border-radius:8px;padding:9px 16px;cursor:pointer;border:1px solid transparent;
+  display:inline-flex;align-items:center;gap:6px;transition:filter .15s, background .15s;
+}
+.btn-primary{background:var(--accent);color:#241A05;}
+.btn-primary:hover{filter:brightness(0.95);}
+.btn-outline{background:var(--card);border:1px solid var(--line);color:var(--text);}
+.btn-outline:hover{background:var(--paper);}
+.btn-dark{background:var(--ink);color:#fff;}
+.btn-dark:hover{background:var(--ink-2);}
+.btn-sm{padding:6px 11px;font-size:11.5px;}
+
+/* ===== Cards / KPI ===== */
+.kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:22px;}
+.kpi{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px 15px;position:relative;overflow:hidden;
+}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--kpi-c,var(--accent));}
+.kpi-label{font-size:10.5px;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);font-weight:600;}
+.kpi-value{font-family:'IBM Plex Mono';font-size:26px;font-weight:600;margin-top:6px;letter-spacing:-0.01em;font-variant-numeric:tabular-nums;}
+.kpi-delta{font-size:11px;margin-top:4px;color:var(--text-dim);}
+
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);}
+.panel-head{padding:16px 18px;border-bottom:1px solid var(--line-2);display:flex;align-items:center;justify-content:space-between;}
+.panel-title{font-family:'Space Grotesk';font-weight:700;font-size:14.5px;}
+.panel-body{padding:16px 18px;}
+.grid-2{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;}
+.grid-2b{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+
+/* ===== Tables ===== */
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{
+  text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.06em;
+  color:var(--text-dim);font-weight:600;padding:9px 10px;border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+td{padding:11px 10px;border-bottom:1px solid var(--line-2);color:var(--text);white-space:nowrap;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:var(--paper);}
+.cell-strong{font-weight:600;}
+.cell-mono{font-family:'IBM Plex Mono';font-size:12px;}
+
+/* ===== Badges ===== */
+.badge{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;
+  font-size:11px;font-weight:600;white-space:nowrap;
+}
+.badge .d{width:6px;height:6px;border-radius:50%;}
+.badge-good{background:var(--good-dim);color:#1B7A42;}
+.badge-good .d{background:var(--good);}
+.badge-route{background:var(--route-dim);color:#2955A3;}
+.badge-route .d{background:var(--route);}
+.badge-bad{background:var(--bad-dim);color:#A6362C;}
+.badge-bad .d{background:var(--bad);}
+.badge-amber{background:var(--amber-dim);color:#8A6212;}
+.badge-amber .d{background:var(--accent-dark);}
+.badge-grey{background:#EEEFEC;color:#5D6470;}
+.badge-grey .d{background:#9AA1A9;}
+
+/* ===== Toolbar / filters ===== */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
+.toolbar input, .toolbar select{
+  padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);
+  font-size:12.5px;font-family:'Inter';color:var(--text);
+}
+.toolbar .grow{flex:1;min-width:180px;}
+.toolbar-spacer{flex:1;}
+
+/* progress bar */
+.progress{height:6px;background:var(--line-2);border-radius:4px;overflow:hidden;width:110px;}
+.progress > i{display:block;height:100%;background:var(--route);}
+.progress.good > i{background:var(--good);}
+.progress.amber > i{background:var(--accent);}
+.progress.bad > i{background:var(--bad);}
+
+/* ===== Login view ===== */
+.login-shell{min-height:100vh;display:flex;}
+.login-left{
+  flex:0 0 46%;background:var(--ink);color:#fff;padding:56px 52px;display:flex;flex-direction:column;justify-content:space-between;
+  position:relative;overflow:hidden;
+}
+.login-left::after{
+  content:"";position:absolute;right:-60px;bottom:-60px;width:280px;height:280px;border-radius:50%;
+  background:radial-gradient(circle, rgba(242,169,59,0.14), transparent 70%);
+}
+.login-roles{list-style:none;padding:0;margin:22px 0 0;}
+.login-roles li{
+  display:flex;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.08);font-size:13.5px;color:#C6CCD2;
+}
+.login-roles li b{color:#fff;font-family:'Space Grotesk';min-width:118px;display:inline-block;}
+.login-right{flex:1;display:flex;align-items:center;justify-content:center;background:var(--paper);}
+.login-card{width:380px;}
+.login-card label{display:block;font-size:12px;font-weight:600;color:var(--text-dim);margin:14px 0 6px;text-transform:uppercase;letter-spacing:0.04em;}
+.login-card input{
+  width:100%;padding:11px 13px;border-radius:8px;border:1px solid var(--line);background:var(--card);
+  font-family:'Inter';font-size:13.5px;
+}
+.login-card input:focus{outline:2px solid var(--accent);outline-offset:1px;}
+.login-foot-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12.5px;color:var(--text-dim);}
+.login-submit{
+  width:100%;margin-top:22px;padding:12px;background:var(--accent);border:none;border-radius:8px;
+  font-family:'Space Grotesk';font-weight:700;font-size:14px;cursor:pointer;color:#241A05;
+}
+.login-submit:hover{filter:brightness(0.96);}
+.login-note{margin-top:26px;font-size:11.5px;color:var(--text-dim);line-height:1.6;padding:12px 14px;background:#F6F0E1;border-radius:8px;border:1px solid #EBDCB6;}
+
+/* ===== Bar chart ===== */
+.bars{display:flex;align-items:flex-end;gap:10px;height:150px;padding-top:10px;}
+.bars .bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;justify-content:flex-end;height:100%;}
+.bars .bar i{width:100%;background:var(--route);border-radius:4px 4px 0 0;display:block;}
+.bars .bar span{font-size:10.5px;color:var(--text-dim);}
+.hbar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.hbar-label{width:70px;font-size:12px;color:var(--text-dim);flex:0 0 auto;}
+.hbar-track{flex:1;height:9px;background:var(--line-2);border-radius:5px;overflow:hidden;}
+.hbar-track > i{display:block;height:100%;border-radius:5px;}
+.hbar-val{width:44px;font-family:'IBM Plex Mono';font-size:11.5px;text-align:right;}
+
+/* stepper */
+.stepper{display:flex;align-items:center;margin-bottom:20px;}
+.step{display:flex;align-items:center;gap:8px;color:var(--text-dim);font-size:12.5px;font-weight:600;}
+.step .dot{width:22px;height:22px;border-radius:50%;background:var(--line-2);color:var(--text-dim);display:flex;align-items:center;justify-content:center;font-size:11px;font-family:'IBM Plex Mono';}
+.step.done .dot{background:var(--good);color:#fff;}
+.step.active .dot{background:var(--accent);color:#241A05;}
+.step.active{color:var(--text);}
+.step.done{color:var(--text);}
+.step-line{width:46px;height:1px;background:var(--line);margin:0 8px;}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.form-field label{display:block;font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;}
+.form-field input,.form-field select{
+  width:100%;padding:9px 11px;border-radius:7px;border:1px solid var(--line);font-family:'Inter';font-size:13px;background:var(--paper);
+}
+.form-field.full{grid-column:1/-1;}
+.warn-box{
+  background:var(--bad-dim);border:1px solid #F0C3BE;border-radius:8px;padding:10px 12px;font-size:12px;color:#A6362C;margin-top:14px;line-height:1.5;
+}
+.queue-item{padding:12px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;}
+.queue-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.queue-route{font-size:12.5px;color:var(--text-dim);}
+
+.status-flow{display:flex;align-items:center;gap:10px;margin:14px 0;flex-wrap:wrap;}
+.status-flow .node{padding:7px 13px;border-radius:20px;font-size:12px;font-weight:600;}
+.status-flow .arrow{color:var(--text-dim);font-size:16px;}
+
+.legend-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+
+/* Settings matrix */
+.matrix th, .matrix td{text-align:center;}
+.matrix th:first-child, .matrix td:first-child{text-align:left;}
+.check{color:var(--good);font-weight:700;}
+.cross{color:var(--text-dim);}
+
+@media(max-width:1200px){
+  .kpi-row{grid-template-columns:repeat(3,1fr);}
+  .grid-2, .grid-2b{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN VIEW ============ -->
+<div id="loginView" class="login-shell">
+  <div class="login-left">
+    <div>
+      <div class="brand-mark"><span class="brand-dot"></span><span class="brand-name">TransitOps</span></div>
+      <div class="brand-tag" style="margin-left:20px;">Fleet Transport Operations Airflow</div>
+      <p style="max-width:340px;color:#B9C0C7;font-size:14px;line-height:1.7;margin-top:34px;">
+        One login, four roles. Dispatch trips, track vehicles, and close out maintenance and fuel spend — all from a single manifest.
+      </p>
+      <ul class="login-roles">
+        <li><b>Fleet Manager</b> Full oversight, reporting</li>
+        <li><b>Dispatcher</b> Command trips</li>
+        <li><b>Safety Officer</b> Drivers, licenses</li>
+        <li><b>Finance Analyst</b> Fuel &amp; expenses, analytics</li>
+      </ul>
+    </div>
+    <div style="font-size:11.5px;color:#7C8590;">TransitOps &nbsp;·&nbsp; Route Ops Platform</div>
+  </div>
+  <div class="login-right">
+    <div class="login-card">
+      <div class="display" style="font-size:22px;font-weight:700;">Sign in to your account</div>
+      <div style="color:var(--text-dim);font-size:13px;margin-top:4px;">Access your fleet by role.</div>
+      <label>Email</label>
+      <input id="loginEmail" type="email" value="dispatcher@transitops.io">
+      <label>Password</label>
+      <input id="loginPass" type="password" value="••••••••">
+      <div class="login-foot-row">
+        <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-weight:400;color:var(--text-dim);margin:0;"><input type="checkbox" checked style="width:auto;"> Remember me</label>
+        <a href="#" style="color:var(--route);text-decoration:none;">Forgot password?</a>
+      </div>
+      <button class="login-submit" onclick="signIn()">Sign in</button>
+      <div class="login-note">Access is scoped by role after login: Fleet Manager sees everything, Dispatcher commands trips, Safety Officer manages drivers, Finance Analyst owns fuel &amp; expenses / analytics.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP SHELL ============ -->
+<div id="appShell" class="shell" style="display:none;">
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-mark"><span class="brand-dot"></span><span class="brand-name">TransitOps</span></div>
+      <div class="brand-tag">Fleet Ops Airflow</div>
+    </div>
+    <div class="nav" id="navList">
+      <div class="nav-item active" data-view="dashboard"><span class="nav-code">R01</span>Dashboard</div>
+      <div class="nav-item" data-view="fleet"><span class="nav-code">R02</span>Fleet</div>
+      <div class="nav-item" data-view="drivers"><span class="nav-code">R03</span>Drivers</div>
+      <div class="nav-item" data-view="trips"><span class="nav-code">R04</span>Trips</div>
+      <div class="nav-item" data-view="maintenance"><span class="nav-code">R05</span>Maintenance</div>
+      <div class="nav-item" data-view="fuel"><span class="nav-code">R06</span>Fuel &amp; Expenses</div>
+      <div class="nav-item" data-view="analytics"><span class="nav-code">R07</span>Analytics</div>
+      <div class="nav-item" data-view="settings"><span class="nav-code">R08</span>Settings</div>
+    </div>
+    <div class="sidebar-foot">
+      <div class="role-pill"><span class="rd"></span>Dispatcher · Priya S.</div>
+      <button class="signout" onclick="signOut()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input placeholder="Search vehicles, drivers, trip IDs…">
+      </div>
+      <div class="top-right">
+        <select class="range-select"><option>Last 7 days</option><option>Last 30 days</option><option>This quarter</option></select>
+        <div class="avatar">PS</div>
+      </div>
+    </div>
+
+    <!-- ===================== DASHBOARD ===================== -->
+    <div class="view active" id="view-dashboard">
+      <div class="view-head">
+        <div><span class="route-code">R01</span><span class="view-title">Dashboard</span><div class="view-sub">Fleet-wide status at a glance</div></div>
+      </div>
+      <div class="toolbar">
+        <select><option>Vehicle type: All</option><option>Van</option><option>Truck</option><option>Bus</option></select>
+        <select><option>Status: All</option><option>Available</option><option>On trip</option><option>In shop</option></select>
+        <select><option>Depot: All</option><option>North</option><option>South</option></select>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi" style="--kpi-c:var(--route)"><div class="kpi-label">Active vehicles</div><div class="kpi-value">53</div><div class="kpi-delta">of 61 registered</div></div>
+        <div class="kpi" style="--kpi-c:var(--good)"><div class="kpi-label">Available now</div><div class="kpi-value">42</div><div class="kpi-delta">ready to dispatch</div></div>
+        <div class="kpi" style="--kpi-c:var(--accent)"><div class="kpi-label">Assigned to trip</div><div class="kpi-value">05</div><div class="kpi-delta">on active routes</div></div>
+        <div class="kpi" style="--kpi-c:#8B5E3C"><div class="kpi-label">In the shop</div><div class="kpi-value">18</div><div class="kpi-delta">under maintenance</div></div>
+        <div class="kpi" style="--kpi-c:var(--route)"><div class="kpi-label">Trips today</div><div class="kpi-value">09</div><div class="kpi-delta">3 completed</div></div>
+        <div class="kpi" style="--kpi-c:var(--good)"><div class="kpi-label">Fleet utilization</div><div class="kpi-value">87%</div><div class="kpi-delta">↑ 4% vs last week</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Recent trips</div><button class="btn btn-outline btn-sm" onclick="setView('trips')">Open dispatcher →</button></div>
+        <div class="panel-body" style="padding:0;">
+          <table>
+            <thead><tr><th>Trip ID</th><th>Vehicle</th><th>Driver</th><th>Status</th><th>ETA</th><th>Progress</th></tr></thead>
+            <tbody>
+              <tr><td class="cell-mono">TR001</td><td>MH04AF2201</td><td>Arjun Rao</td><td><span class="badge badge-route"><i class="d"></i>On trip</span></td><td>48 min</td><td><div class="progress"><i style="width:64%"></i></div></td></tr>
+              <tr><td class="cell-mono">TR002</td><td>MH04BJ7788</td><td>Zara Khan</td><td><span class="badge badge-good"><i class="d"></i>Completed</span></td><td>—</td><td><div class="progress good"><i style="width:100%"></i></div></td></tr>
+              <tr><td class="cell-mono">TR003</td><td>MH04CK4092</td><td>Farah Iyer</td><td><span class="badge badge-amber"><i class="d"></i>Dispatched</span></td><td>1h 12m</td><td><div class="progress amber"><i style="width:20%"></i></div></td></tr>
+              <tr><td class="cell-mono">TR004</td><td>—</td><td>—</td><td><span class="badge badge-grey"><i class="d"></i>Draft</span></td><td>Awaiting signoff</td><td><div class="progress"><i style="width:4%"></i></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== FLEET / VEHICLE REGISTRY ===================== -->
+    <div class="view" id="view-fleet">
+      <div class="view-head">
+        <div><span class="route-code">R02</span><span class="view-title">Vehicle Registry</span><div class="view-sub">Every registered unit, its papers, and its odometer</div></div>
+        <button class="btn btn-primary" onclick="openAddVehicle()">+ Add vehicle</button>
+      </div>
+      <div class="toolbar">
+        <input class="grow" placeholder="Search by reg. no or model…">
+        <select><option>Type: All</option><option>Van</option><option>Truck</option><option>Bus</option></select>
+        <select><option>Status: All</option><option>Available</option><option>On trip</option><option>In shop</option><option>Retired</option></select>
+      </div>
+      <div class="panel">
+        <div class="panel-body" style="padding:0;">
+          <table>
+            <thead><tr><th>Reg. no.</th><th>Model</th><th>Type</th><th>Fuel type</th><th>Odometer</th><th>Purchase cost</th><th>Status</th></tr></thead>
+            <tbody id="vehicleTable">
+              <tr><td class="cell-mono cell-strong">MH04AF2201</td><td>Ashok Leyland Dost+</td><td>Van</td><td>Diesel</td><td class="cell-mono">72,410 km</td><td class="cell-mono">₹9,24,000</td><td><span class="badge badge-route"><i class="d"></i>On trip</span></td></tr>
+              <tr><td class="cell-mono cell-strong">MH04BJ7788</td><td>Tata 407 Gold</td><td>Truck</td><td>Diesel</td><td class="cell-mono">1,92,300 km</td><td class="cell-mono">₹12,80,000</td><td><span class="badge badge-good"><i class="d"></i>Available</span></td></tr>
+              <tr><td class="cell-mono cell-strong">MH04CK4092</td><td>Force Traveller</td><td>Bus</td><td>Diesel</td><td class="cell-mono">64,220 km</td><td class="cell-mono">₹18,10,000</td><td><span class="badge badge-amber"><i class="d"></i>In shop</span></td></tr>
+              <tr><td class="cell-mono cell-strong">MH04DL8837</td><td>Mahindra Bolero Pik-Up</td><td>Van</td><td>Diesel</td><td class="cell-mono">1,04,930 km</td><td class="cell-mono">₹8,95,000</td><td><span class="badge badge-bad"><i class="d"></i>Retired</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p style="font-size:11.5px;color:var(--text-dim);margin-top:10px;">File registration once. Odometer and repair history are drawn live from the trip log.</p>
+    </div>
+
+    <!-- ===================== DRIVERS & SAFETY ===================== -->
+    <div class="view" id="view-drivers">
+      <div class="view-head">
+        <div><span class="route-code">R03</span><span class="view-title">Drivers &amp; Safety Profiles</span><div class="view-sub">Licenses, contact records, and duty status</div></div>
+        <button class="btn btn-primary" onclick="openAddDriver()">+ Add driver</button>
+      </div>
+      <div class="toolbar">
+        <input class="grow" placeholder="Search by name or license…">
+      </div>
+      <div class="panel">
+        <div class="panel-body" style="padding:0;">
+          <table>
+            <thead><tr><th>Driver</th><th>License no.</th><th>Contact</th><th>Expiry</th><th>License status</th><th>Duty status</th></tr></thead>
+            <tbody id="driverTable">
+              <tr><td class="cell-strong">Arjun Rao</td><td class="cell-mono">DL-4938201</td><td class="cell-mono">98202 71930</td><td>12/3/2028</td><td><span class="badge badge-good"><i class="d"></i>Valid</span></td><td><span class="badge badge-good"><i class="d"></i>Available</span></td></tr>
+              <tr><td class="cell-strong">Zara Khan</td><td class="cell-mono">DL-4402188</td><td class="cell-mono">97120 33481</td><td>07/9/2027</td><td><span class="badge badge-good"><i class="d"></i>Valid</span></td><td><span class="badge badge-route"><i class="d"></i>On trip</span></td></tr>
+              <tr><td class="cell-strong">Farah Iyer</td><td class="cell-mono">DL-9917340</td><td class="cell-mono">90211 55021</td><td>03/1/2027</td><td><span class="badge badge-good"><i class="d"></i>Valid</span></td><td><span class="badge badge-amber"><i class="d"></i>Dispatched</span></td></tr>
+              <tr><td class="cell-strong">Deepak Sen</td><td class="cell-mono">DL-1723094</td><td class="cell-mono">98450 12290</td><td>11/6/2026</td><td><span class="badge badge-bad"><i class="d"></i>Expiring soon</span></td><td><span class="badge badge-grey"><i class="d"></i>Off duty</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="legend-row">
+        <span class="badge badge-good"><i class="d"></i>Available</span>
+        <span class="badge badge-route"><i class="d"></i>On trip</span>
+        <span class="badge badge-grey"><i class="d"></i>Off duty</span>
+        <span class="badge badge-amber"><i class="d"></i>Dispatched</span>
+      </div>
+      <p style="font-size:11.5px;color:var(--text-dim);margin-top:10px;">File expired or expiring licenses. Drivers with an expired license cannot receive new trip assignments.</p>
+    </div>
+
+    <!-- ===================== TRIP DISPATCHER ===================== -->
+    <div class="view" id="view-trips">
+      <div class="view-head">
+        <div><span class="route-code">R04</span><span class="view-title">Trip Dispatcher</span><div class="view-sub">Build, assign, and release trips onto the road</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Create trip</div></div>
+          <div class="panel-body">
+            <div class="stepper">
+              <div class="step done" id="stepDraft"><span class="dot">1</span>Draft</div><div class="step-line"></div>
+              <div class="step active" id="stepDispatch"><span class="dot">2</span>Dispatched</div><div class="step-line"></div>
+              <div class="step" id="stepComplete"><span class="dot">3</span>Completed</div>
+            </div>
+            <div class="form-grid">
+              <div class="form-field"><label>Vehicle</label><select id="tripVehicle"><option>MH04AF2201 — Ashok Leyland Dost+</option><option>MH04BJ7788 — Tata 407 Gold</option></select></div>
+              <div class="form-field"><label>Driver</label><select id="tripDriver"><option>Arjun Rao</option><option>Zara Khan</option></select></div>
+              <div class="form-field"><label>Origin</label><input placeholder="Bandra Depot"></div>
+              <div class="form-field"><label>Destination</label><input placeholder="Andheri Warehouse"></div>
+              <div class="form-field"><label>Cargo weight (kg)</label><input id="cargoWeight" type="number" value="900"></div>
+              <div class="form-field"><label>Scheduled date</label><input type="date" value="2026-07-14"></div>
+            </div>
+            <div id="capacityWarn" class="warn-box" style="display:none;">Vehicle capacity: 750 kg. Cargo weight (900 kg) exceeds capacity by 150 kg — reassign vehicle before dispatch.</div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+              <button class="btn btn-outline" id="dispatchBtn" onclick="checkCapacity()">Dispatch trip</button>
+              <button class="btn btn-outline" style="background:transparent;">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Live queue</div></div>
+          <div class="panel-body">
+            <div class="queue-item"><div class="queue-top"><span class="cell-mono cell-strong">TR001</span><span class="badge badge-route"><i class="d"></i>On trip</span></div><div class="queue-route">Bandra Depot → Andheri Warehouse</div><div style="font-size:11.5px;color:var(--text-dim);margin-top:4px;">ETA 48 min</div></div>
+            <div class="queue-item"><div class="queue-top"><span class="cell-mono cell-strong">TR002</span><span class="badge badge-good"><i class="d"></i>Completed</span></div><div class="queue-route">Kurla Yard → Dadar Cold Storage</div><div style="font-size:11.5px;color:var(--text-dim);margin-top:4px;">Delivered on time</div></div>
+            <div class="queue-item"><div class="queue-top"><span class="cell-mono cell-strong">TR003</span><span class="badge badge-amber"><i class="d"></i>Dispatched</span></div><div class="queue-route">Vashi Hub → Panvel Retail Depot</div><div style="font-size:11.5px;color:var(--text-dim);margin-top:4px;">Rolling out shortly</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== MAINTENANCE ===================== -->
+    <div class="view" id="view-maintenance">
+      <div class="view-head">
+        <div><span class="route-code">R05</span><span class="view-title">Maintenance</span><div class="view-sub">Service records and the shop-status pipeline</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Service log</div></div>
+          <div class="panel-body" style="padding:0;">
+            <table>
+              <thead><tr><th>Vehicle</th><th>Service type</th><th>Cost</th><th>Date</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td class="cell-mono">MH04CK4092</td><td>Brake pad replacement</td><td class="cell-mono">₹4,850</td><td>02/07/2026</td><td><span class="badge badge-amber"><i class="d"></i>In shop</span></td></tr>
+                <tr><td class="cell-mono">MH04DL8837</td><td>Engine overhaul</td><td class="cell-mono">₹41,200</td><td>28/06/2026</td><td><span class="badge badge-good"><i class="d"></i>Completed</span></td></tr>
+                <tr><td class="cell-mono">MH04AF2201</td><td>Tyre rotation</td><td class="cell-mono">₹2,300</td><td>25/06/2026</td><td><span class="badge badge-good"><i class="d"></i>Completed</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Log service record</div></div>
+          <div class="panel-body">
+            <div class="form-field" style="margin-bottom:12px;"><label>Vehicle</label><select><option>MH04CK4092</option><option>MH04AF2201</option></select></div>
+            <div class="form-field" style="margin-bottom:12px;"><label>Service type</label><input placeholder="Clutch replacement"></div>
+            <div class="form-field" style="margin-bottom:12px;"><label>Cost</label><input type="number" placeholder="4500"></div>
+            <div class="form-field" style="margin-bottom:12px;"><label>Date</label><input type="date"></div>
+            <div class="form-field" style="margin-bottom:16px;"><label>Status</label><select><option>In shop</option><option>Completed</option></select></div>
+            <button class="btn btn-primary" style="width:100%;justify-content:center;">Log service</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px;">
+        <div class="panel-body">
+          <div class="panel-title" style="margin-bottom:4px;">Status pipeline</div>
+          <div class="status-flow">
+            <span class="node badge-good" style="background:var(--good-dim);color:#1B7A42;">Available</span>
+            <span class="arrow">→</span>
+            <span class="node" style="background:var(--amber-dim);color:#8A6212;">In shop</span>
+            <span class="arrow">→</span>
+            <span class="node" style="background:var(--good-dim);color:#1B7A42;">Completed</span>
+            <span class="arrow">→</span>
+            <span class="node" style="background:var(--good-dim);color:#1B7A42;">Available</span>
+          </div>
+          <p style="font-size:11.5px;color:var(--text-dim);">A vehicle in shop cannot be dispatched until its service record is marked complete.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== FUEL & EXPENSES ===================== -->
+    <div class="view" id="view-fuel">
+      <div class="view-head">
+        <div><span class="route-code">R06</span><span class="view-title">Fuel &amp; Expense Management</span><div class="view-sub">Every litre and every rupee, by vehicle</div></div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-outline">+ Log fuel</button>
+          <button class="btn btn-primary">+ Add expense</button>
+        </div>
+      </div>
+      <div class="grid-2b">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Fuel logs</div></div>
+          <div class="panel-body" style="padding:0;">
+            <table>
+              <thead><tr><th>Vehicle</th><th>Date</th><th>Litres</th><th>Cost</th></tr></thead>
+              <tbody>
+                <tr><td class="cell-mono">MH04AF2201</td><td>07/07/2026</td><td class="cell-mono">42 L</td><td class="cell-mono">₹4,830</td></tr>
+                <tr><td class="cell-mono">MH04BJ7788</td><td>06/07/2026</td><td class="cell-mono">80 L</td><td class="cell-mono">₹9,200</td></tr>
+                <tr><td class="cell-mono">MH04CK4092</td><td>05/07/2026</td><td class="cell-mono">27 L</td><td class="cell-mono">₹3,110</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Other expenses</div></div>
+          <div class="panel-body" style="padding:0;">
+            <table>
+              <thead><tr><th>Type</th><th>Vehicle</th><th>Driver</th><th>Amount</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>Toll</td><td class="cell-mono">MH04AF2201</td><td>Arjun Rao</td><td class="cell-mono">₹680</td><td><span class="badge badge-good"><i class="d"></i>Approved</span></td></tr>
+                <tr><td>Parking</td><td class="cell-mono">MH04BJ7788</td><td>Zara Khan</td><td class="cell-mono">₹150</td><td><span class="badge badge-good"><i class="d"></i>Approved</span></td></tr>
+                <tr><td>Fine</td><td class="cell-mono">MH04CK4092</td><td>Farah Iyer</td><td class="cell-mono">₹1,000</td><td><span class="badge badge-amber"><i class="d"></i>Pending</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px;">
+        <div class="panel-body" style="display:flex;align-items:center;justify-content:space-between;">
+          <div class="panel-title">Total operating cost this month · fuel + maintenance</div>
+          <div class="mono" style="font-size:20px;font-weight:600;color:var(--accent-dark);">₹1,04,090</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== ANALYTICS ===================== -->
+    <div class="view" id="view-analytics">
+      <div class="view-head">
+        <div><span class="route-code">R07</span><span class="view-title">Reports &amp; Analytics</span><div class="view-sub">How the fleet is spending fuel, time, and money</div></div>
+      </div>
+      <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);">
+        <div class="kpi" style="--kpi-c:var(--route)"><div class="kpi-label">Fuel efficiency</div><div class="kpi-value">8.4 km/l</div><div class="kpi-delta">fleet average</div></div>
+        <div class="kpi" style="--kpi-c:var(--good)"><div class="kpi-label">Fleet utilization</div><div class="kpi-value">81%</div><div class="kpi-delta">of active vehicles</div></div>
+        <div class="kpi" style="--kpi-c:var(--accent)"><div class="kpi-label">Operating cost</div><div class="kpi-value">₹34,070</div><div class="kpi-delta">per week</div></div>
+        <div class="kpi" style="--kpi-c:#8B5E3C"><div class="kpi-label">Vehicle ROI</div><div class="kpi-value">14.2%</div><div class="kpi-delta">trailing 90 days</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Monthly revenue</div></div>
+          <div class="panel-body">
+            <div class="bars">
+              <div class="bar"><i style="height:52%;background:var(--route);"></i><span>Feb</span></div>
+              <div class="bar"><i style="height:60%;background:var(--route);"></i><span>Mar</span></div>
+              <div class="bar"><i style="height:47%;background:var(--route);"></i><span>Apr</span></div>
+              <div class="bar"><i style="height:70%;background:var(--route);"></i><span>May</span></div>
+              <div class="bar"><i style="height:64%;background:var(--route);"></i><span>Jun</span></div>
+              <div class="bar"><i style="height:82%;background:var(--accent);"></i><span>Jul</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Top cost-listed vehicles</div></div>
+          <div class="panel-body">
+            <div class="hbar-row"><div class="hbar-label mono">MH04CK4092</div><div class="hbar-track"><i style="width:92%;background:var(--bad);"></i></div><div class="hbar-val">₹18.1k</div></div>
+            <div class="hbar-row"><div class="hbar-label mono">MH04DL8837</div><div class="hbar-track"><i style="width:60%;background:var(--accent);"></i></div><div class="hbar-val">₹11.8k</div></div>
+            <div class="hbar-row"><div class="hbar-label mono">MH04AF2201</div><div class="hbar-track"><i style="width:32%;background:var(--route);"></i></div><div class="hbar-val">₹6.3k</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== SETTINGS & RBAC ===================== -->
+    <div class="view" id="view-settings">
+      <div class="view-head">
+        <div><span class="route-code">R08</span><span class="view-title">Settings &amp; RBAC</span><div class="view-sub">Admin profile and role permissions</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Admin profile</div></div>
+          <div class="panel-body">
+            <div class="form-field" style="margin-bottom:12px;"><label>Full name</label><input value="Priya Sharma"></div>
+            <div class="form-field" style="margin-bottom:12px;"><label>Company name</label><input value="TransitOps Pvt. Ltd."></div>
+            <div class="form-field" style="margin-bottom:16px;"><label>Company logo</label><input value="transitops-logo.svg"></div>
+            <button class="btn btn-primary" onclick="saveSettings()">Save changes</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Role-based access rights</div></div>
+          <div class="panel-body" style="padding:0;">
+            <table class="matrix">
+              <thead><tr><th>Role</th><th>Fleet</th><th>Dispatch</th><th>Safety</th><th>Analytics</th></tr></thead>
+              <tbody>
+                <tr><td class="cell-strong">Fleet Manager</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+                <tr><td class="cell-strong">Dispatcher</td><td class="cross">–</td><td class="check">✓</td><td class="cross">–</td><td class="cross">–</td></tr>
+                <tr><td class="cell-strong">Safety Officer</td><td class="cross">–</td><td class="cross">–</td><td class="check">✓</td><td class="cross">–</td></tr>
+                <tr><td class="cell-strong">Finance Analyst</td><td class="cross">–</td><td class="cross">–</td><td class="cross">–</td><td class="check">✓</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function signIn(){
+  document.getElementById('loginView').style.display='none';
+  document.getElementById('appShell').style.display='flex';
+}
+function signOut(){
+  document.getElementById('appShell').style.display='none';
+  document.getElementById('loginView').style.display='flex';
+}
+function setView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.view===name));
+}
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click', ()=> setView(item.dataset.view));
+});
+function checkCapacity(){
+  const weight = parseFloat(document.getElementById('cargoWeight').value)||0;
+  const warn = document.getElementById('capacityWarn');
+  if(weight > 750){
+    warn.style.display='block';
+  } else {
+    warn.style.display='none';
+    alert('Trip dispatched.');
+  }
+}
+function openAddVehicle(){ alert('Opens the add-vehicle form — registration no., model, type, fuel type, purchase cost.'); }
+function openAddDriver(){ alert('Opens the add-driver form — name, license no., contact, license expiry.'); }
+function saveSettings(){ alert('Settings saved.'); }
+</script>
+</body>
+</html>
